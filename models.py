@@ -87,7 +87,7 @@ class MenuCategory(models.Model):
     restaurant = models.ForeignKey('Restaurant', on_delete=models.CASCADE)
 
     class Meta:
-        # one restaurant won't allow duplicate categories
+        # one restaurant won't allow duplicate menu categories
         unique_together = ('category_name', 'restaurant')
 
 
@@ -98,7 +98,7 @@ class MenuItem(models.Model):
     ingredients = models.CharField(max_length=512)
     image_link = models.ImageField(upload_to='item_images')
     # optional: choices = models.ManyToManyField(ItemChoices, blank=true)
-    category = models.ForeignKey(MenuCategory, on_delete=models.CASCADE)
+    category = models.ForeignKey(MenuCategory, on_delete=models.SET_DEFAULT, default=None)
     restaurant = models.ForeignKey('Restaurant', on_delete=models.CASCADE)
 
     class Meta:
