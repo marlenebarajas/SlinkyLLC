@@ -3,6 +3,41 @@ from django.core.validators import validate_slug
 from django.db import models
 
 
+class CustomUserManager(BaseUserManager):
+    """
+    Custom user model manager where email is the unique identifiers
+    for authentication instead of usernames.
+    """
+
+    use_in_migrations = True
+
+    def create_user(self, email, password, **extra_fields):
+        """
+        Create and save a User with the given email and password.
+        """
+        if not email:
+            raise ValueError(_('The Email must be set'))
+        email = self.normalize_email(email)
+        user = self.model(email=email, **extra_fields)
+        user.set_password(password)
+        user.save()
+        return user
+
+    def create_superuser(self, email, password, **extra_fields):
+        """
+        Create and save a SuperUser with the given email and password.
+        """
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault('is_active', True)
+
+        if extra_fields.get('is_staff') is not True:
+            raise ValueError(_('Superuser must have is_staff=True.'))
+        if extra_fields.get('is_superuser') is not True:
+            raise ValueError(_('Superuser must have is_superuser=True.'))
+        return self.create_user(email, password, **extra_fields)
+
+
 class State(models.Model):
     state_code = models.CharField(primary_key=True, max_length=2)
     state_name = models.CharField(max_length=30)
@@ -59,6 +94,7 @@ class Restaurant(models.Model):
     description = models.CharField(max_length=256)
     zip_code = models.ForeignKey(ZipCode, on_delete=models.SET_DEFAULT, default=None)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    #averafe rating and average price needed
 
 
 class Customer(models.Model):
@@ -206,3 +242,64 @@ class Review(models.Model):
     comment_date = models.DateTimeField()
     order = models.OneToOneField(Order, on_delete=models.CASCADE)
     delivery = models.OneToOneField(Delivery, on_delete=models.CASCADE)
+	
+class Cart(models.Model):
+    '''
+    The Cart model that will hold CartEntrys related to a user's unique cart.
+    '''
+    user = models.ForeignKey('CustomUserManager', on_delete=models.CASCADE) # gives each customer has their unique cart
+    menu_items = models.ManyToManyField(MenuItem, blank=True)
+    total_cost = models.DecimalField(default=0.00, max_digits=10, decimal_places=2)
+    order_date = models.DateField(null=True)
+    
+    
+    def add_menu_item(self, menu_item_id):
+    '''
+    Adds a menu item to a user's cart.
+    '''
+    try:
+        item = MenuItem.objects.get(pk=menu_item_id) # will access the MenuItem that user is trying to add to cart
+        try: # if the cart entry already exists, just increment that item's quantity
+            item_exists = CartEntry.objects.get(cart=self, menu_item=item)
+            item_exists.quantity +=1
+            item.exists.save()
+        except CartEntry.DoesNotExist: # create a new cart entry with this item
+            new_entry = CartEntry.objects.create(cart=self, menu_item=item, quantity=1)
+            new_entry.save()
+    except ObjectDoesNotExist: # checks that the item is reachable
+        pass
+    
+    
+    
+    def remove_menu_item:
+    '''
+    Removes a menu item from a user's cart.
+    '''
+    try:
+        item = MenuItem.objects.get(pk=menu_item_id) # will access the MenuItem that user is trying to add to cart
+        try: # if the cart entry already exists, just decrement that item's quantity
+            item_exists = CartEntry.objects.get(cart=self, menu_item=item)
+            item_exists.quantity-=1
+            item_exists.save()
+            if item_exists.quantity=0: # if the quantity is 0, delete CartEntry
+                item_exists.delete()
+        except CartEntry.DoesNotExist: # this shouldn't be encountered, but if so
+            pass
+    except ObjectDoesNotExist: # checks that the item is reachable
+        pass
+    
+    
+    def checkout:
+    '''
+    Creates an Order from the CartEntrys in the user's cart.
+    '''
+    new_order = Order.objects.create(order_date=this.order_date)
+    
+    
+class CartEntry(models.Model):
+    '''
+    Cart entry that is linked to a specific user's cart (ForeignKey cart).
+    '''
+    cart = models.ForeignKey(Cart, null=True, on_delete='CASCADE')
+    menu_item = models.ForeignKey(MenuItem, null=True, on_delete='CASCADE')
+    quantity = models.PositiveIntegerField()
